@@ -1,6 +1,7 @@
-mod eval_board;
+mod engine;
 mod eval_encoding;
-mod minimax;
+mod transposition;
 mod uci;
 
-pub(crate) use minimax::eval;
+pub(crate) mod eval_position;
+pub(crate) use engine::eval;

@@ -11,7 +11,7 @@ fn consistent_position_hash() {
     assert_eq!(hash1, pos.get_hash());
 
     for mv in legal_moves {
-        pos.play_move(mv, true);
+        pos.play_move(mv);
 
         assert_ne!(hash1, pos.get_hash());
 

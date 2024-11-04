@@ -1,7 +1,7 @@
 use crate::{
     constants::{
         board_constants::BOARD_WIDTH,
-        piece::{type_of, BLACK_PAWN, PAWN, WHITE_PAWN},
+        piece::{type_of, BLACK_PAWN, PTYPE_PAWN, WHITE_PAWN},
         square::{D5, E5, E6},
     },
     game::fen_string::{parse_fen, START_FEN},
@@ -24,16 +24,16 @@ fn set_en_passant_square() {
             let dest_sq = decode_dest_square(mv);
             let src_piece = decode_src_piece(mv);
 
-            if type_of(src_piece) == PAWN && dest_sq == src_sq + BOARD_WIDTH * 2 {
+            if type_of(src_piece) == PTYPE_PAWN && dest_sq == src_sq + BOARD_WIDTH * 2 {
                 double_pawn_move_count += 1;
-                pos.play_move(mv, true);
+                pos.play_move(mv);
                 assert_eq!(pos.get_en_passant_square(), src_sq + 8);
                 pos.undo_move(mv, undo_info);
             }
         }
     }
 
-    assert_eq!(double_pawn_move_count, 8);
+    assert_eq!(double_pawn_move_count, BOARD_WIDTH);
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn play_en_passant_capture() {
 
     assert!(legal_moves1.contains(&ep_move));
 
-    pos.play_move(ep_move, true);
+    pos.play_move(ep_move);
 
     assert!(!pos.has_piece_on(WHITE_PAWN, D5));
     assert!(!pos.has_piece_on(BLACK_PAWN, E5));

@@ -19,13 +19,13 @@ const INITIALS: [(char, u8); 4] = [
     ('q', BLACK_QUEEN_SIDE),
 ];
 
-pub(crate) const fn get_castling_right(color: Color, wing: usize) -> u8 {
+pub(crate) const fn get_castling_right(color: Color, wing: u8) -> u8 {
     const BY_COLOR_AND_WING: [[u8; 2]; 2] = [
         [WHITE_KING_SIDE, WHITE_QUEEN_SIDE],
         [BLACK_KING_SIDE, BLACK_QUEEN_SIDE],
     ];
 
-    BY_COLOR_AND_WING[color as usize][wing]
+    BY_COLOR_AND_WING[color as usize][wing as usize]
 }
 
 pub(super) fn parse_castling_rights(str: &str) -> u8 {
@@ -64,7 +64,7 @@ pub(crate) fn stringify_castling_rights(castling_rights: u8) -> String {
 }
 
 pub(super) fn are_castling_squares_ok(
-    wing: usize,
+    wing: u8,
     rank: usize,
     occupancy: u64,
     enemy_attacks: u64,

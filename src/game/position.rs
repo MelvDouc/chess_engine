@@ -1,7 +1,9 @@
 use crate::{
     constants::{
-        board_constants::{file_of, rank_of, square_of, FILE_E, NB_PIECES, NB_SQUARES},
-        piece::{get_piece, KING, NONE_PIECE, PAWN, PROMOTION_TYPES, QUEEN, WHITE_PAWN},
+        board_constants::{rank_of, square_of, FILE_E, NB_PIECES, NB_SQUARES},
+        piece::{
+            get_piece, NONE_PIECE, PROMOTION_TYPES, PTYPE_KING, PTYPE_PAWN, PTYPE_QUEEN, WHITE_PAWN,
+        },
         wing, Color,
     },
     moves::{
@@ -15,7 +17,7 @@ use crate::{
 use super::{
     castling::{are_castling_squares_ok, get_castling_right},
     play_moves::{play_move, undo_move},
-    position_hash::*,
+    position_hash::{castling_hash, color_hash, en_passant_hash as ep_hash, piece_hash},
     undo_move_info::*,
 };
 
@@ -33,20 +35,18 @@ impl Position {
     pub(crate) fn create(
         active_color: Color,
         castling_rights: u8,
-        en_passant_square: usize,
+        en_passant_sq: usize,
         half_move_clock: u8,
         full_move_number: u16,
     ) -> Self {
-        let occupancies: [u64; NB_PIECES + 2] = [0; NB_PIECES + 2];
-        let hash = color_hash()
-            ^ castling_hash(castling_rights)
-            ^ en_passant_hash(file_of(en_passant_square));
+        let occupancies: [u64; NB_PIECES + 2] = [0u64; NB_PIECES + 2];
+        let hash = color_hash() ^ castling_hash(castling_rights) ^ ep_hash(en_passant_sq);
         Position {
             occupancies,
             hash,
             active_color,
             castling_rights,
-            en_passant_square,
+            en_passant_square: en_passant_sq,
             half_move_clock,
             full_move_number,
         }
@@ -71,7 +71,7 @@ impl Position {
         self.active_color.is_white()
     }
 
-    pub(crate) fn has_castling(&self, color: Color, wing: usize) -> bool {
+    pub(crate) fn has_castling(&self, color: Color, wing: u8) -> bool {
         self.castling_rights & get_castling_right(color, wing) != 0
     }
 
@@ -92,7 +92,7 @@ impl Position {
 
     pub(crate) fn set_en_passant_square(&mut self, en_passant_sq: usize) {
         if en_passant_sq != self.en_passant_square {
-            self.hash ^= en_passant_hash(self.en_passant_square) ^ en_passant_hash(en_passant_sq);
+            self.hash ^= ep_hash(self.en_passant_square) ^ ep_hash(en_passant_sq);
             self.en_passant_square = en_passant_sq;
         }
     }
@@ -123,6 +123,10 @@ impl Position {
         self.hash ^= piece_hash(piece, sq);
     }
 
+    pub(crate) fn piece_occupancy(&self, piece_type: u8, color: Color) -> u64 {
+        self.occupancies[get_piece(piece_type, color)]
+    }
+
     /// Returns a U64 where every 4 digits is the number of pieces at the corresponding index.
     pub(crate) fn piece_count(&self) -> u64 {
         let mut piece_count = 0u64;
@@ -139,7 +143,7 @@ impl Position {
         let occupancy = self.full_occupancy();
         let mut attacks = 0u64;
 
-        for piece_type in PAWN..=QUEEN {
+        for piece_type in PTYPE_PAWN..=PTYPE_QUEEN {
             let piece = get_piece(piece_type, color);
             let mut occ = self.occupancies[piece];
 
@@ -153,38 +157,57 @@ impl Position {
     }
 
     pub(crate) fn is_check(&self) -> bool {
-        let king_bb = self.piece_occupancy(KING, self.active_color);
-        let occupancy = self.full_occupancy();
-
-        for piece_type in PAWN..=QUEEN {
-            let piece = get_piece(piece_type, self.inactive_color());
-            let mut occ = self.occupancies[piece];
-
-            while occ != 0u64 {
-                let sq = pop_right(&mut occ);
-
-                if piece_attacks(piece, sq, occupancy) & king_bb != 0u64 {
-                    return true;
-                }
-            }
-        }
-
-        false
+        self.has_king_en_prise(self.active_color)
     }
 
     pub(crate) fn legal_moves(&mut self) -> Vec<u32> {
-        let mut legal_moves = self.pseudo_legal_moves();
         let undo_info = self.undo_move_info();
+        let active_color = self.active_color;
+        let mut legal_moves = self.pseudo_legal_moves();
+
         legal_moves.retain(|&mv| {
-            self.play_move(mv, false);
-            let is_check = self.is_check();
+            self.play_move(mv);
+            let is_legal = !self.has_king_en_prise(active_color);
             self.undo_move(mv, undo_info);
-            !is_check
+            is_legal
         });
         self.add_castling_moves(&mut legal_moves);
         legal_moves
     }
 
+    /// Move the pieces according to the move parameters.
+    /// It also updates the <u>castling rights</u> and <u>en passant square</u>.
+    /// The active is not automatically updated in order to test for check.
+    pub(crate) fn play_move(&mut self, mv: u32) {
+        play_move(self, mv);
+        self.set_active_color(self.inactive_color());
+    }
+
+    /// Put the pieces back where they were before playing the move.
+    /// It also resets the position parameters like castling rights or the en passant square.
+    pub(crate) fn undo_move(&mut self, mv: u32, undo_info: u32) {
+        undo_move(self, mv);
+        reset_from_move_info(self, undo_info);
+    }
+
+    pub(crate) fn undo_move_info(&self) -> u32 {
+        encode_undo_info(self)
+    }
+
+    pub(crate) fn clone(&self) -> Self {
+        Position {
+            occupancies: self.occupancies.clone(),
+            active_color: self.active_color,
+            castling_rights: self.castling_rights,
+            en_passant_square: self.en_passant_square,
+            half_move_clock: self.half_move_clock,
+            full_move_number: self.full_move_number,
+            hash: self.hash,
+        }
+    }
+}
+
+impl Position {
     fn active_occupancy(&self) -> u64 {
         self.occupancies[NB_PIECES + self.active_color as usize]
     }
@@ -195,10 +218,6 @@ impl Position {
 
     fn full_occupancy(&self) -> u64 {
         self.active_occupancy() | self.inactive_occupancy()
-    }
-
-    fn piece_occupancy(&self, piece_type: usize, color: Color) -> u64 {
-        self.occupancies[get_piece(piece_type, color)]
     }
 
     fn pseudo_legal_moves(&self) -> Vec<u32> {
@@ -212,14 +231,12 @@ impl Position {
 
         moves
     }
-}
 
-impl Position {
     fn inactive_occ_array(&self) -> [usize; NB_SQUARES] {
         let mut arr = [NONE_PIECE; NB_SQUARES];
 
-        for piece_type in PAWN..=QUEEN {
-            let piece = get_piece(piece_type, self.active_color);
+        for piece_type in PTYPE_PAWN..=PTYPE_QUEEN {
+            let piece = get_piece(piece_type, self.inactive_color());
             let mut occ = self.occupancies[piece];
 
             while occ != 0u64 {
@@ -229,6 +246,26 @@ impl Position {
         }
 
         arr
+    }
+
+    fn has_king_en_prise(&self, color: Color) -> bool {
+        let king_bb = self.piece_occupancy(PTYPE_KING, color);
+        let occupancy = self.full_occupancy();
+
+        for piece_type in PTYPE_PAWN..=PTYPE_QUEEN {
+            let piece = get_piece(piece_type, color.reverse());
+            let mut occ = self.occupancies[piece];
+
+            while occ != 0u64 {
+                let sq = pop_right(&mut occ);
+
+                if piece_attacks(piece, sq, occupancy) & king_bb != 0u64 {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     fn add_pawn_pushes(&self, moves: &mut Vec<u32>, pawn: usize, src_sq: usize, occupancy: u64) {
@@ -266,7 +303,7 @@ impl Position {
             }
 
             if dest_sq == self.en_passant_square {
-                let captured = get_piece(PAWN, self.inactive_color());
+                let captured = get_piece(PTYPE_PAWN, self.inactive_color());
                 let mv = en_passant_move(src_sq, dest_sq, pawn, captured);
                 moves.push(mv);
                 continue;
@@ -298,7 +335,7 @@ impl Position {
         occupancy: u64,
         inactive_occ_array: [usize; NB_SQUARES],
     ) {
-        let pawn = get_piece(PAWN, self.active_color);
+        let pawn = get_piece(PTYPE_PAWN, self.active_color);
         let mut occ = self.occupancies[pawn];
 
         while occ != 0u64 {
@@ -315,7 +352,7 @@ impl Position {
         not_active_occ: u64,
         inactive_occ_array: [usize; NB_SQUARES],
     ) {
-        for piece_type in PAWN + 1..=QUEEN {
+        for piece_type in PTYPE_PAWN + 1..=PTYPE_QUEEN {
             let src_piece = get_piece(piece_type, self.active_color);
             let mut occ = self.occupancies[src_piece];
 
@@ -335,7 +372,7 @@ impl Position {
     fn add_castling_moves(&self, legal_moves: &mut Vec<u32>) {
         let rank = self.active_color.initial_piece_rank();
         let king_src_sq = square_of(rank, FILE_E);
-        let king_bb = self.piece_occupancy(KING, self.active_color);
+        let king_bb = self.piece_occupancy(PTYPE_KING, self.active_color);
 
         if king_bb != bitboard_of(king_src_sq) {
             return;
@@ -347,7 +384,7 @@ impl Position {
             return;
         }
 
-        let king = get_piece(KING, self.active_color);
+        let king = get_piece(PTYPE_KING, self.active_color);
 
         for wing in wing::WINGS {
             if self.has_castling(self.active_color, wing)
@@ -357,29 +394,5 @@ impl Position {
                 legal_moves.push(mv);
             }
         }
-    }
-}
-
-impl Position {
-    /// Move the pieces according to the move parameters.
-    /// It also updates the <u>castling rights</u> and <u>en passant square</u>.
-    /// The active is not automatically updated in order to test for check.
-    pub(crate) fn play_move(&mut self, mv: u32, toggle_color: bool) {
-        play_move(self, mv);
-
-        if toggle_color {
-            self.set_active_color(self.inactive_color());
-        }
-    }
-
-    /// Put the pieces back where they were before playing the move.
-    /// It also resets the position parameters like castling rights or the en passant square.
-    pub(crate) fn undo_move(&mut self, mv: u32, undo_info: u32) {
-        undo_move(self, mv);
-        reset_from_move_info(self, undo_info);
-    }
-
-    pub(crate) fn undo_move_info(&self) -> u32 {
-        encode_undo_info(self)
     }
 }

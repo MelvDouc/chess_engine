@@ -5,7 +5,10 @@
 // bits 20-23 = promoted piece
 // bits 24-25 = move kind
 
-use crate::constants::{piece::NONE_PIECE, square, wing};
+use crate::constants::{
+    piece::{piece_initial, NONE_PIECE},
+    square, wing,
+};
 
 const SQUARE_MASK: u32 = (1 << 6) - 1;
 const PIECE_MASK: u32 = (1 << 4) - 1;
@@ -83,7 +86,7 @@ pub(crate) const fn promotion_move(
     )
 }
 
-pub(crate) const fn castling_move(king_src_sq: usize, wing: usize, king: usize) -> u32 {
+pub(crate) const fn castling_move(king_src_sq: usize, wing: u8, king: usize) -> u32 {
     let dest_sq = if wing == wing::KING_SIDE {
         king_src_sq + 2
     } else {
@@ -133,5 +136,11 @@ pub(crate) fn move_notation(mv: u32) -> String {
     let mut str = String::new();
     str.push_str(square::name_of(decode_src_square(mv)));
     str.push_str(square::name_of(decode_dest_square(mv)));
+
+    if let MoveKind::Promotion = decode_kind(mv) {
+        let promoted = decode_promoted(mv);
+        str.push(piece_initial(promoted).to_ascii_uppercase());
+    }
+
     str
 }

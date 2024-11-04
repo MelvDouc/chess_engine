@@ -26,6 +26,13 @@ impl Color {
         }
     }
 
+    pub(crate) const fn direction(&self) -> i8 {
+        match self {
+            Self::White => 1,
+            Self::Black => -1,
+        }
+    }
+
     pub(crate) const fn initial(&self) -> char {
         match self {
             Self::White => 'w',

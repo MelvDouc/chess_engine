@@ -1,8 +1,10 @@
 pub(crate) const BOARD_WIDTH: usize = 8;
 pub(crate) const NB_SQUARES: usize = BOARD_WIDTH * BOARD_WIDTH;
 
+pub(crate) const NB_PIECE_TYPES: usize = 6;
+
 /// The number of **unique** pieces.
-pub(crate) const NB_PIECES: usize = 12;
+pub(crate) const NB_PIECES: usize = NB_PIECE_TYPES * 2;
 
 pub(crate) const RANK_1: usize = 0;
 pub(crate) const RANK_2: usize = 1;
@@ -35,7 +37,15 @@ pub(crate) const fn file_of(sq: usize) -> usize {
     sq & 7
 }
 
+pub(crate) const fn reverse_coord(coord: usize) -> usize {
+    BOARD_WIDTH - 1 - coord
+}
+
 /// Get the zero-indexed square at a given rank and file.
 pub(crate) const fn square_of(rank: usize, file: usize) -> usize {
     (rank << 3) + file
+}
+
+pub(crate) const fn is_dark_sq(sq: usize) -> bool {
+    rank_of(sq) % 2 == file_of(sq) % 2
 }

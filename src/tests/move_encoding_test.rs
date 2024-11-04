@@ -2,7 +2,7 @@ use rand::{thread_rng, Rng};
 
 use crate::{
     constants::{
-        piece::{get_piece, BLACK_PAWN, KNIGHT, NONE_PIECE, QUEEN, WHITE_PAWN},
+        piece::{get_piece, BLACK_PAWN, NONE_PIECE, PTYPE_KNIGHT, PTYPE_QUEEN, WHITE_PAWN},
         square::{A1, A5, A6, H5, H6, H8},
         Color,
     },
@@ -22,7 +22,7 @@ fn random_move_encoding() {
     let is_promotion = rng.gen_bool(25.0 / 100.0);
 
     let mv = if is_promotion {
-        let promoted_type = rng.gen_range(KNIGHT..=QUEEN);
+        let promoted_type = rng.gen_range(PTYPE_KNIGHT..=PTYPE_QUEEN);
         let promoted = get_piece(promoted_type, Color::White);
         promotion_move(src_sq, dest_sq, src_piece, captured, promoted)
     } else {

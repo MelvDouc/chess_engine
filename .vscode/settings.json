@@ -2,8 +2,13 @@
   "cSpell.words": [
     "ascii",
     "bestmove",
+    "Damiano",
     "isready",
+    "kilopawns",
+    "millipawns",
     "nbits",
+    "negamax",
+    "ptype",
     "readyok",
     "rnbqkbnr",
     "rngs",
@@ -11,6 +16,7 @@
     "startpos",
     "ucinewgame",
     "uciok",
+    "underpromotion",
     "zobrist"
   ]
 }

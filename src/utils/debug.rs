@@ -1,6 +1,6 @@
 use crate::{
     constants::{
-        board_constants::{square_of, FILE_A, FILE_H, RANK_1, RANK_8},
+        board_constants::{file_of, square_of, FILE_A, FILE_H, RANK_1, RANK_8},
         piece::{piece_initial, NONE_PIECE, WHITE_PAWN},
         square,
     },
@@ -9,7 +9,17 @@ use crate::{
 
 use super::bitboard::bitboard_of;
 
-pub(crate) fn print_bitboard(bb: u64) -> () {
+pub(crate) fn print_binary_string(bb: u64) {
+    for sq in (square::A1..=square::H8).rev() {
+        print!("{}", (bb & bitboard_of(sq)) >> sq);
+
+        if file_of(sq) == 0 {
+            print!(" ");
+        }
+    }
+}
+
+pub(crate) fn print_bitboard(bb: u64) {
     for rank in (RANK_1..=RANK_8).rev() {
         for file in FILE_A..=FILE_H {
             let sq = square_of(rank, file);

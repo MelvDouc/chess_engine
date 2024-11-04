@@ -1,5 +1,5 @@
 use crate::constants::{
-    board_constants::{square_of, BOARD_WIDTH, RANK_1, RANK_8},
+    board_constants::{reverse_coord, square_of, RANK_1, RANK_8},
     piece, square, Color,
 };
 
@@ -31,7 +31,7 @@ fn set_pieces(piece_str: &str, pos: &mut Position) -> () {
     let rows = piece_str.split("/").collect::<Vec<&str>>();
 
     for rank in RANK_1..=RANK_8 {
-        let row = rows[BOARD_WIDTH - rank - 1];
+        let row = rows[reverse_coord(rank)];
         let mut file: usize = 0;
 
         for ch in row.chars() {
