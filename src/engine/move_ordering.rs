@@ -15,6 +15,8 @@ pub(crate) fn sort_captures(moves: &mut MoveList) {
         .sort_by(|&a, &b| move_score_raw(b).cmp(&move_score_raw(a)));
 }
 
+/// A quiet move is not a check, capture or promotion.
+/// Quiet moves appear last in a sorted move list.
 pub(crate) const fn is_quiet_move(mv: Move) -> bool {
     !encoding::gives_check(mv) && !encoding::is_capture(mv) && !encoding::is_promotion(mv)
 }
@@ -59,6 +61,10 @@ mod tests {
 
             if !encoding::gives_check(mv1) {
                 assert!(!encoding::gives_check(mv2));
+            }
+
+            if is_quiet_move(mv1) {
+                assert!(is_quiet_move(mv2));
             }
         }
     }

@@ -1,7 +1,7 @@
 pub(crate) struct Prng(u64);
 
 impl Prng {
-    pub(crate) const fn create(seed: u64) -> Self {
+    pub(crate) const fn new(seed: u64) -> Self {
         Self(seed)
     }
 

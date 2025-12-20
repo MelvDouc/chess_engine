@@ -18,7 +18,7 @@ const TABLE_SIZE: usize = NB_PIECE_HASHES + NB_COLOR_HASHES + NB_CASTLING_HASHES
 
 /// Zobrist hashes used to get a (mostly) unique representation of a given position.
 const HASHES: [u64; TABLE_SIZE] = {
-    let mut rng = Prng::create(1234);
+    let mut rng = Prng::new(1234);
     let mut table = [0; TABLE_SIZE];
 
     const_while!(i, 0, TABLE_SIZE, {

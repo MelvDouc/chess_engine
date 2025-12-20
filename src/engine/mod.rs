@@ -1,12 +1,3 @@
-use crate::{
-    engine::{null_move_pruning::prune_null_move, score::*, transposition as tp},
-    game::{
-        moves::{Move, NULL_MOVE},
-        position::Position,
-    },
-    macros::ternary,
-};
-
 mod killer_moves;
 mod move_ordering;
 mod null_move_pruning;
@@ -15,6 +6,19 @@ mod quiescence;
 mod score;
 mod static_eval;
 mod transposition;
+
+use crate::{
+    game::{
+        moves::{Move, MoveList, NULL_MOVE},
+        position::Position,
+    },
+    macros::ternary,
+};
+
+use null_move_pruning::prune_null_move;
+use score::*;
+use static_eval::eval_position;
+use transposition as tp;
 
 const MAX_DEPTH: usize = 255;
 const DELTA: Score = 500;
@@ -134,8 +138,17 @@ fn negamax(
             tt,
             hash,
             depth,
-            quiescence::quiesce(pos, alpha, beta, Some(moves))
+            // quiescence::quiesce(pos, alpha, beta, Some(moves))
+            eval_position(pos)
         );
+    }
+
+    if depth == 1 {
+        let static_score = eval_position(pos);
+
+        if static_score + 2000 <= alpha {
+            return static_score;
+        }
     }
 
     if let Some(score) = prune_null_move(pos, tt, kmt, ply, depth, beta) {
@@ -143,11 +156,43 @@ fn negamax(
     }
 
     move_ordering::sort_moves(&mut moves, &kmt[depth]);
+    negamax_moves(pos, tt, kmt, ply, depth, &moves, old_alpha, alpha, beta)
+}
+
+fn negamax_moves(
+    pos: &mut Position,
+    tt: &mut tp::Table,
+    kmt: &mut killer_moves::Table,
+    ply: usize,
+    depth: usize,
+    moves: &MoveList,
+    old_alpha: Score,
+    mut alpha: Score,
+    beta: Score,
+) -> Score {
+    /// Ref: https://int0x80.ca/posts/chess-engines/11-fp
+    const FUTILITY_MARGIN: Score = 800; // 800~1200
+
     let undo_info = pos.undo_info();
     let mut best_score = Score::MIN;
     let mut best_mv = NULL_MOVE;
+    let mut i = 0;
 
-    for &mv in &moves {
+    let can_futility_prune = depth == 1 && !pos.is_check();
+    let static_score = ternary!(can_futility_prune, eval_position(pos), 0);
+
+    while i < moves.len() && alpha < beta {
+        let mv = moves[i];
+        i += 1;
+
+        if best_mv != NULL_MOVE
+            && can_futility_prune
+            && move_ordering::is_quiet_move(mv)
+            && static_score + FUTILITY_MARGIN <= alpha
+        {
+            break;
+        }
+
         pos.play_move(mv);
         let mv_score = move_score(pos, tt, kmt, ply, depth, alpha, beta, mv);
         pos.undo_move(mv, undo_info);
@@ -165,15 +210,11 @@ fn negamax(
 
         if best_score > alpha {
             alpha = best_score;
-
-            if alpha >= beta {
-                break;
-            }
         }
     }
 
     let flag = tp::flags::get_flag(old_alpha, beta, best_score);
-    let entry = tp::Entry::new(flag, hash, best_score, depth, best_mv);
+    let entry = tp::Entry::new(flag, pos.hash(), best_score, depth, best_mv);
     tp::set_entry(tt, entry);
     best_score
 }

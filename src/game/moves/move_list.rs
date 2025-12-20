@@ -13,14 +13,21 @@ const MAX_MOVES: usize = 255;
 pub(crate) struct MoveList {
     moves: [Move; MAX_MOVES],
     len: usize,
+    /// Cached for later use when marking a move as check.
+    enemy_king_sq: usize,
 }
 
 impl MoveList {
-    pub(crate) const fn new() -> Self {
+    pub(crate) const fn new(enemy_king_sq: usize) -> Self {
         Self {
             moves: [NULL_MOVE; MAX_MOVES],
             len: 0,
+            enemy_king_sq,
         }
+    }
+
+    pub(crate) const fn enemy_king_square(&self) -> usize {
+        self.enemy_king_sq
     }
 
     pub(crate) const fn len(&self) -> usize {

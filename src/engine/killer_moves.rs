@@ -8,7 +8,7 @@ pub(crate) const fn create_table() -> Table {
 }
 
 pub(crate) const fn update(kmt: &mut Table, mv: Move, depth: usize) {
-    if mv != kmt[depth].0 {
+    if mv != kmt[depth].0 && mv != kmt[depth].1 {
         kmt[depth] = (mv, kmt[depth].0);
     }
 }

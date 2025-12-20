@@ -1,5 +1,5 @@
 mod castling_moves;
-mod check;
+mod checks;
 mod figure_moves;
 mod pawn_moves;
 mod pins;
@@ -23,9 +23,9 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
     let enemy_color = pos.inactive_color();
     let own_occ = pos.active_occupancy();
     let king_sq = pos.king_square(color);
-    let check_type = check::CheckType::get(pos, king_sq);
+    let check_type = checks::CheckType::get(pos, king_sq);
     let check_mask = check_type.get_mask();
-    let mut moves = MoveList::new();
+    let mut moves = MoveList::new(pos.king_square(enemy_color));
 
     set_bits!(own_occ, src_sq, {
         let piece = pos.get_piece(src_sq);
@@ -55,7 +55,7 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
 }
 
 const fn add_move(pos: &Position, moves: &mut MoveList, mut mv: Move) {
-    if check::gives_check(pos, mv) {
+    if checks::gives_check(pos, moves.enemy_king_square(), mv) {
         mv = encoding::mark_check(mv);
     }
 

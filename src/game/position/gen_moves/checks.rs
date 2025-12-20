@@ -71,8 +71,7 @@ impl CheckType {
     }
 }
 
-pub(crate) const fn gives_check(pos: &Position, mv: Move) -> bool {
-    let enemy_king_sq = pos.king_square(pos.inactive_color());
+pub(crate) const fn gives_check(pos: &Position, enemy_king_sq: usize, mv: Move) -> bool {
     let src_sq = encoding::src_square(mv);
     let dest_sq = encoding::dest_square(mv);
     let mut src_piece = encoding::src_piece(mv);

@@ -232,17 +232,18 @@ impl Position {
 
     pub(crate) const fn is_check(&self) -> bool {
         let color = self.active_color;
-        let opp_color = self.inactive_color();
+        let enemy_color = self.inactive_color();
         let king_sq = self.king_square(color);
 
-        if piece_attacks(pieces::pawn_of(color), king_sq, 0) & self.pawn_occupancy(opp_color) != 0 {
+        if piece_attacks(pieces::pawn_of(color), king_sq, 0) & self.pawn_occupancy(enemy_color) != 0
+        {
             return true;
         }
 
         let full_occ = self.full_occupancy();
 
         const_while!(piece_type, 1, NB_PIECE_TYPES, {
-            let piece = pieces::of(piece_type, opp_color);
+            let piece = pieces::of(piece_type, enemy_color);
 
             if piece_attacks(piece, king_sq, full_occ) & self.piece_occupancy(piece) != 0 {
                 return true;
