@@ -1,5 +1,4 @@
 use crate::{
-    errors::FENError,
     game::{
         board::{self, Board, colors, lines, pieces, squares, wings},
         moves::castling::{castling_bit, has_castling_right},
@@ -105,7 +104,10 @@ fn stringify_board(board: &Board) -> String {
 fn parse_active_color(str: &str) -> Result<usize, FENError> {
     if str.len() == 1 {
         let initial = str.chars().nth(0).unwrap();
-        return colors::from_initial(initial);
+
+        if let Ok(color) = colors::from_initial(initial) {
+            return Ok(color);
+        }
     }
 
     Err(FENError::InvalidColor(str.to_owned()))
@@ -165,7 +167,10 @@ fn parse_ep_square(str: &str) -> Result<usize, FENError> {
         return Ok(squares::NONE);
     }
 
-    squares::from_name(str)
+    match squares::from_name(str) {
+        Ok(sq) => Ok(sq),
+        Err(_) => Err(FENError::InvalidSquare(str.to_owned())),
+    }
 }
 
 pub(crate) fn stringify_ep_square(ep_sq: usize) -> String {
@@ -184,3 +189,13 @@ fn parse_half_move_clock(str: &str) -> Result<u8, FENError> {
 }
 
 type ParsedFEN = (Board, usize, u8, usize, u8);
+
+#[derive(Debug, Clone)]
+pub(crate) enum FENError {
+    InvalidSquare(String),
+    InvalidColor(String),
+    InvalidBoard(String, char),
+    InvalidCastlingRights(String),
+    InvalidHalfMoveClock(String),
+    InvalidFormat(String),
+}

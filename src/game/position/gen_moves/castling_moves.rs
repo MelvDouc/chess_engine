@@ -27,10 +27,10 @@ pub(crate) const fn castling_moves(
         ) {
             let king_src_sq = king_src_square(color);
             let king_dest_sq = king_dest_square(color, wing);
-            super::add_move!(
+            super::add_move(
                 pos,
                 moves,
-                castling_move(king_src_sq, king_dest_sq, pieces::king_of(color))
+                castling_move(king_src_sq, king_dest_sq, pieces::king_of(color)),
             );
         }
     });

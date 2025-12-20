@@ -1,19 +1,15 @@
 use crate::{
     bit_boards::{bit_mask, is_bit_set, set_bits},
     game::{
-        board::{
-            directions as dirs,
-            pieces::{self, piece_types},
-            squares,
-        },
-        moves::{
-            Move,
-            castling::{get_wing, rook_dest_square},
-            encoding, piece_attacks,
-        },
-        position::Position,
+        board::{directions as dirs, pieces, squares},
+        moves::{Move, castling, encoding, piece_attacks},
     },
     macros::ternary,
+};
+
+use super::{
+    Position,
+    pins::{can_pin, find_next_piece},
 };
 
 pub(crate) enum CheckType {
@@ -23,9 +19,8 @@ pub(crate) enum CheckType {
 }
 
 impl CheckType {
-    pub(crate) const fn get(pos: &Position) -> Self {
+    pub(crate) const fn get(pos: &Position, king_sq: usize) -> Self {
         let full_occ = pos.full_occupancy();
-        let king_sq = pos.king_square(pos.active_color);
         let mut checker1: Option<(usize, usize)> = None;
         let mut checker2 = false;
 
@@ -68,16 +63,19 @@ impl CheckType {
     }
 }
 
-pub(crate) const fn gives_check(pos: &Position, enemy_king_sq: usize, mv: Move) -> bool {
+pub(crate) const fn gives_check(pos: &Position, mv: Move) -> bool {
+    let enemy_king_sq = pos.king_square(pos.inactive_color());
     let src_sq = encoding::src_square(mv);
     let dest_sq = encoding::dest_square(mv);
     let src_piece = encoding::src_piece(mv);
+    let color = pieces::color_of(src_piece);
     let mut occ = pos.full_occupancy() & !bit_mask(src_sq) | bit_mask(dest_sq);
 
     if encoding::is_castling(mv) {
-        let color = pieces::color_of(src_piece);
-        let wing = get_wing(src_sq, dest_sq);
-        let rook_dest_sq = rook_dest_square(color, wing);
+        let wing = castling::get_wing(src_sq, dest_sq);
+        let rook_src_sq = castling::rook_src_square(color, wing);
+        let rook_dest_sq = castling::rook_dest_square(color, wing);
+        occ = occ & !bit_mask(rook_src_sq) | bit_mask(rook_dest_sq);
 
         return is_bit_set(
             piece_attacks(pieces::WHITE_ROOK, rook_dest_sq, occ),
@@ -100,28 +98,10 @@ pub(crate) const fn gives_check(pos: &Position, enemy_king_sq: usize, mv: Move) 
         return true;
     }
 
-    if !pieces::is_queen(src_piece) {
-        if !pieces::is_bishop(src_piece) {
-            return is_discovered_check(pos, occ, enemy_king_sq, piece_types::BISHOP);
-        }
-
-        if !pieces::is_rook(src_piece) {
-            return is_discovered_check(pos, occ, enemy_king_sq, piece_types::ROOK);
-        }
+    // discovered check
+    if let Some((checker, _, dir)) = find_next_piece(pos, enemy_king_sq, src_sq) {
+        return pieces::color_of(checker) == color && can_pin(checker, dir);
     }
 
     false
-}
-
-const fn is_discovered_check(
-    pos: &Position,
-    occ: u64,
-    enemy_king_sq: usize,
-    slider_type: usize,
-) -> bool {
-    let color = pos.active_color;
-    let slider = pieces::of(slider_type, color);
-    let slider_occ = pos.piece_occupancy(slider) | pos.queen_occupancy(color);
-
-    return piece_attacks(slider, enemy_king_sq, occ) & slider_occ != 0;
 }

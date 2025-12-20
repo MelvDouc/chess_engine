@@ -1,16 +1,8 @@
 use crate::{
     bit_boards::{is_bit_set, set_bits},
     game::{
-        board::{
-            NB_COLORS, colors, directions as dirs,
-            pieces::{self, piece_types},
-            squares,
-        },
-        moves::{
-            MoveList,
-            encoding::{en_passant_move, normal_move, promotion_move},
-            piece_attacks,
-        },
+        board::{NB_COLORS, colors, directions as dirs, pieces, squares},
+        moves::{MoveList, encoding, piece_attacks},
         position::Position,
     },
     macros::const_while,
@@ -46,14 +38,22 @@ const fn add_pawn_pushes(
             return;
         }
 
-        super::add_move!(pos, moves, normal_move(src_sq, dest_sq, pawn, pieces::NONE));
+        super::add_move(
+            pos,
+            moves,
+            encoding::normal_move(src_sq, dest_sq, pawn, pieces::NONE),
+        );
     }
 
     if squares::rank_of(src_sq) == colors::pawn_rank(pos.active_color) {
         let dest_sq = push_dest_square(dest_sq, pos.active_color);
 
         if is_bit_set(!pos.full_occupancy() & pin_check_mask, dest_sq) {
-            super::add_move!(pos, moves, normal_move(src_sq, dest_sq, pawn, pieces::NONE));
+            super::add_move(
+                pos,
+                moves,
+                encoding::normal_move(src_sq, dest_sq, pawn, pieces::NONE),
+            );
         }
     }
 }
@@ -75,10 +75,10 @@ const fn add_pawn_captures(
 
     if pos.en_passant_sq != squares::NONE && is_bit_set(bb, pos.en_passant_sq) {
         let captured = pieces::rev_color(pawn);
-        super::add_move!(
+        super::add_move(
             pos,
             moves,
-            en_passant_move(src_sq, pos.en_passant_sq, pawn, captured)
+            encoding::en_passant_move(src_sq, pos.en_passant_sq, pawn, captured),
         );
     }
 
@@ -86,7 +86,11 @@ const fn add_pawn_captures(
         let captured = pos.get_piece(dest_sq);
 
         if !is_promotion(dest_sq, pos.active_color) {
-            super::add_move!(pos, moves, normal_move(src_sq, dest_sq, pawn, captured));
+            super::add_move(
+                pos,
+                moves,
+                encoding::normal_move(src_sq, dest_sq, pawn, captured),
+            );
             continue;
         }
 
@@ -108,18 +112,18 @@ const fn add_promotions(
 ) {
     /// Sorted by frequency.
     const PROMOTION_TYPES: [usize; 4] = [
-        piece_types::QUEEN,
-        piece_types::KNIGHT,
-        piece_types::ROOK,
-        piece_types::BISHOP,
+        pieces::piece_types::QUEEN,
+        pieces::piece_types::KNIGHT,
+        pieces::piece_types::ROOK,
+        pieces::piece_types::BISHOP,
     ];
 
     const_while!(i, 0, PROMOTION_TYPES.len(), {
         let promoted = pieces::of(PROMOTION_TYPES[i], pos.active_color);
-        super::add_move!(
+        super::add_move(
             pos,
             moves,
-            promotion_move(src_sq, dest_sq, pawn, captured, promoted)
+            encoding::promotion_move(src_sq, dest_sq, pawn, captured, promoted),
         );
     });
 }

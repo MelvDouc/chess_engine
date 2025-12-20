@@ -1,4 +1,5 @@
-pub(crate) mod fen;
+pub(crate) mod debug;
+mod fen;
 mod gen_moves;
 mod hashes;
 mod play_move;
@@ -9,8 +10,7 @@ mod undo_info;
 mod tests;
 
 use crate::{
-    bit_boards::{clear_bit, set_bit, set_bits},
-    errors::FENError,
+    bit_boards::{clear_bit, set_bit},
     game::{
         board::{Board, NB_COLORS, NB_PIECE_TYPES, NB_PIECES, NB_SQUARES, colors, pieces, squares},
         moves::{Move, MoveList, castling::castling_color_mask, piece_attacks},
@@ -35,7 +35,7 @@ pub(crate) struct Position {
 impl Position {
     pub(crate) const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-    pub(crate) fn from_fen(fen: &str) -> Result<Self, FENError> {
+    pub(crate) fn from_fen(fen: &str) -> Result<Self, fen::FENError> {
         #[rustfmt::skip]
         let (
             board,
@@ -250,18 +250,6 @@ impl Position {
         });
 
         false
-    }
-
-    /// Returns not only the attacked squares but also those X-rayed through the opposing king.
-    const fn color_attacks(&self, color: usize) -> u64 {
-        let occ = self.full_occupancy() & !self.king_occupancy(colors::rev(color));
-        let mut attacks = 0;
-
-        set_bits!(self.color_occupancy(color), sq, {
-            attacks |= piece_attacks(self.board[sq], sq, occ);
-        });
-
-        attacks
     }
 
     pub(crate) const fn legal_moves(&self) -> MoveList {

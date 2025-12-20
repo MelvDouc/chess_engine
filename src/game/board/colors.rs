@@ -1,7 +1,4 @@
-use crate::{
-    errors::FENError,
-    game::board::{NB_COLORS, lines},
-};
+use crate::game::board::{NB_COLORS, lines};
 
 pub(crate) const WHITE: usize = 0;
 pub(crate) const BLACK: usize = 1;
@@ -30,10 +27,10 @@ pub(crate) fn initial_of(color: usize) -> char {
     INITIALS[color]
 }
 
-pub(crate) fn from_initial(initial: char) -> Result<usize, FENError> {
+pub(crate) fn from_initial(initial: char) -> Result<usize, ()> {
     match initial {
         'w' => Ok(WHITE),
         'b' => Ok(BLACK),
-        _ => Err(FENError::InvalidColor(initial.to_string())),
+        _ => Err(()),
     }
 }

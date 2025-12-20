@@ -1,14 +1,11 @@
 use crate::{
-    game::{
-        board::{NB_FILES, NB_PIECES, NB_RANKS, colors, lines, pieces, squares},
-        position::{Position, fen},
-    },
+    game::board::{NB_FILES, NB_PIECES, NB_RANKS, colors, lines, pieces, squares},
     macros::ternary,
 };
 
 use colored::Colorize;
 
-pub(crate) fn print_position(pos: &Position) {
+pub(crate) fn print_position(pos: &super::Position) {
     const _PIECE_UNICODE: [char; NB_PIECES] =
         ['♟', '♞', '♝', '♜', '♛', '♚', '♙', '♘', '♗', '♖', '♕', '♔'];
 
@@ -20,7 +17,7 @@ pub(crate) fn print_position(pos: &Position) {
             let piece = pos.get_piece(sq);
             let ch = ternary!(piece == pieces::NONE, ' ', pieces::initial_of(piece));
             let str = format!(" {} ", ch);
-            let str = ternary!(squares::is_dark(sq), str.on_green(), str.on_white());
+            let str = ternary!(squares::is_dark(sq), str.on_cyan(), str.on_white());
 
             print!("{}", str.black());
         }
@@ -36,9 +33,9 @@ pub(crate) fn print_position(pos: &Position) {
 
     println!(
         " ({} {} {} {})\n",
-        colors::initial_of(pos.get_active_color()),
-        fen::stringify_castling_rights(pos.get_castling_rights()),
-        fen::stringify_ep_square(pos.get_ep_square()),
-        pos.half_move_clock()
+        colors::initial_of(pos.active_color),
+        super::fen::stringify_castling_rights(pos.castling_rights),
+        super::fen::stringify_ep_square(pos.en_passant_sq),
+        pos.half_move_clock
     );
 }

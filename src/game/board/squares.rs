@@ -1,4 +1,4 @@
-use crate::{errors::FENError, game::board::lines};
+use crate::game::board::lines;
 
 pub(crate) const A1: usize = 0;
 pub(crate) const B1: usize = 1;
@@ -102,10 +102,10 @@ pub(crate) const fn is_dark(sq: usize) -> bool {
 }
 
 pub(crate) const fn ep_capture_square(src_sq: usize, dest_sq: usize) -> usize {
-    src_sq & !15 | dest_sq & 7
+    of(rank_of(src_sq), file_of(dest_sq))
 }
 
-pub(crate) fn from_name(name: &str) -> Result<usize, FENError> {
+pub(crate) fn from_name(name: &str) -> Result<usize, ()> {
     if name.len() == 2 {
         let file_name = name.chars().nth(0).unwrap();
         let rank_name = name.chars().nth(1).unwrap();
@@ -117,7 +117,7 @@ pub(crate) fn from_name(name: &str) -> Result<usize, FENError> {
         }
     }
 
-    Err(FENError::InvalidSquare(name.to_owned()))
+    Err(())
 }
 
 pub(crate) fn name_of(sq: usize) -> String {

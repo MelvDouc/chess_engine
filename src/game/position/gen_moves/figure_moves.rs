@@ -13,10 +13,10 @@ pub(crate) const fn figure_moves(
     let bb = piece_attacks(piece, src_sq, pos.full_occupancy()) & attack_mask;
 
     set_bits!(bb, dest_sq, {
-        super::add_move!(
+        super::add_move(
             pos,
             moves,
-            normal_move(src_sq, dest_sq, piece, pos.get_piece(dest_sq))
+            normal_move(src_sq, dest_sq, piece, pos.get_piece(dest_sq)),
         );
     });
 }

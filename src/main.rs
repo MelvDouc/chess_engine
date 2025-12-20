@@ -1,18 +1,16 @@
 #![allow(dead_code)]
 
 mod bit_boards;
-mod debug;
 mod engine;
 mod game;
 mod macros;
-mod errors;
 
 fn main() {
     _main();
 }
 
 fn _main() {
-    use crate::{debug::print_position, engine::run, game::position::Position};
+    use crate::{engine::run, game::position::Position, game::position::debug::print_position};
 
     let fens = [
         /* simple rook mate */

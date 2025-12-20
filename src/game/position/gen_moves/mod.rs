@@ -1,20 +1,20 @@
 mod castling_moves;
-mod check_type;
+mod check;
 mod figure_moves;
 mod pawn_moves;
 mod pins;
 
 use crate::{
-    bit_boards::set_bits,
+    bit_boards::{bit_mask, set_bits},
     game::{
         board::pieces::{self, piece_types},
-        moves::MoveList,
+        moves::{Move, MoveList, encoding, piece_attacks},
         position::Position,
     },
 };
 
 use castling_moves::castling_moves;
-use check_type::CheckType;
+use check::{CheckType, gives_check};
 use figure_moves::figure_moves;
 use pawn_moves::pawn_moves;
 use pins::get_pin_mask;
@@ -24,7 +24,7 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
     let enemy_color = pos.inactive_color();
     let own_occ = pos.active_occupancy();
     let king_sq = pos.king_square(color);
-    let check_type = CheckType::get(pos);
+    let check_type = CheckType::get(pos, king_sq);
     let mut moves = MoveList::new();
 
     let check_mask = match check_type {
@@ -38,18 +38,11 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
 
         match pieces::type_of(piece) {
             piece_types::PAWN => {
-                let pin_check_mask = check_mask
-                    & get_pin_mask(
-                        &pos.board,
-                        pos.full_occupancy(),
-                        king_sq,
-                        src_sq,
-                        enemy_color,
-                    );
+                let pin_check_mask = check_mask & get_pin_mask(pos, king_sq, src_sq, enemy_color);
                 pawn_moves(pos, &mut moves, pin_check_mask, piece, src_sq);
             }
             piece_types::KING => {
-                let enemy_attacks = pos.color_attacks(enemy_color);
+                let enemy_attacks = color_attacks(pos, enemy_color, king_sq);
                 figure_moves(pos, &mut moves, !(own_occ | enemy_attacks), piece, src_sq);
 
                 if check_type.is_none() && pos.can_color_castle(color) {
@@ -57,15 +50,8 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
                 }
             }
             _ => {
-                let attack_mask = !own_occ
-                    & check_mask
-                    & get_pin_mask(
-                        &pos.board,
-                        pos.full_occupancy(),
-                        king_sq,
-                        src_sq,
-                        enemy_color,
-                    );
+                let attack_mask =
+                    !own_occ & check_mask & get_pin_mask(pos, king_sq, src_sq, enemy_color);
                 figure_moves(pos, &mut moves, attack_mask, piece, src_sq);
             }
         };
@@ -74,16 +60,22 @@ pub(crate) const fn legal_moves(pos: &Position) -> MoveList {
     moves
 }
 
-macro_rules! add_move {
-    ($pos: expr, $moves: expr, $mv: expr) => {
-        let enemy_king_sq = $pos.king_square($pos.inactive_color());
+const fn add_move(pos: &Position, moves: &mut MoveList, mut mv: Move) {
+    if gives_check(pos, mv) {
+        mv = encoding::mark_check(mv);
+    }
 
-        if crate::game::position::gen_moves::check_type::gives_check($pos, enemy_king_sq, $mv) {
-            $moves.push(crate::game::moves::encoding::mark_check($mv));
-        } else {
-            $moves.push($mv);
-        }
-    };
+    moves.push(mv);
 }
 
-pub(self) use add_move;
+/// Returns not only the attacked squares but also those X-rayed through the opposing king.
+const fn color_attacks(pos: &Position, color: usize, king_sq: usize) -> u64 {
+    let occ = pos.full_occupancy() & !bit_mask(king_sq);
+    let mut attacks = 0;
+
+    set_bits!(pos.color_occupancy(color), sq, {
+        attacks |= piece_attacks(pos.board[sq], sq, occ);
+    });
+
+    attacks
+}
