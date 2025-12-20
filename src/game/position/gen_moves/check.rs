@@ -4,7 +4,6 @@ use crate::{
         board::{directions as dirs, pieces, squares},
         moves::{Move, castling, encoding, piece_attacks},
     },
-    macros::ternary,
 };
 
 use super::{
@@ -30,10 +29,11 @@ impl CheckType {
             if is_bit_set(piece_attacks(piece, sq, full_occ), king_sq) {
                 if checker1.is_none() {
                     checker1 = Some((piece, sq));
-                } else {
-                    checker2 = true;
-                    break;
+                    continue;
                 }
+
+                checker2 = true;
+                break;
             }
         });
 
@@ -61,46 +61,52 @@ impl CheckType {
             _ => false,
         }
     }
+
+    pub(crate) const fn get_mask(&self) -> u64 {
+        match self {
+            CheckType::None => u64::MAX,
+            CheckType::Single(mask) => *mask,
+            CheckType::Double => 0,
+        }
+    }
 }
 
 pub(crate) const fn gives_check(pos: &Position, mv: Move) -> bool {
     let enemy_king_sq = pos.king_square(pos.inactive_color());
     let src_sq = encoding::src_square(mv);
     let dest_sq = encoding::dest_square(mv);
-    let src_piece = encoding::src_piece(mv);
-    let color = pieces::color_of(src_piece);
+    let mut src_piece = encoding::src_piece(mv);
     let mut occ = pos.full_occupancy() & !bit_mask(src_sq) | bit_mask(dest_sq);
 
-    if encoding::is_castling(mv) {
-        let wing = castling::get_wing(src_sq, dest_sq);
-        let rook_src_sq = castling::rook_src_square(color, wing);
-        let rook_dest_sq = castling::rook_dest_square(color, wing);
-        occ = occ & !bit_mask(rook_src_sq) | bit_mask(rook_dest_sq);
+    match encoding::move_kind(mv) {
+        encoding::move_kinds::EN_PASSANT => {
+            let capture_sq = squares::ep_capture_square(src_sq, dest_sq);
+            occ &= !bit_mask(capture_sq);
+        }
+        encoding::move_kinds::PROMOTION => {
+            src_piece = encoding::promoted(mv);
+        }
+        encoding::move_kinds::CASTLING => {
+            let wing = castling::get_wing(src_sq, dest_sq);
+            let rook_src_sq = castling::rook_src_square(pos.active_color, wing);
+            let rook_dest_sq = castling::rook_dest_square(pos.active_color, wing);
+            occ = occ & !bit_mask(rook_src_sq) | bit_mask(rook_dest_sq);
 
-        return is_bit_set(
-            piece_attacks(pieces::WHITE_ROOK, rook_dest_sq, occ),
-            enemy_king_sq,
-        );
-    }
+            return is_bit_set(
+                piece_attacks(pieces::WHITE_ROOK, rook_dest_sq, occ),
+                enemy_king_sq,
+            );
+        }
+        _ => {}
+    };
 
-    if encoding::is_en_passant(mv) {
-        let capture_sq = squares::ep_capture_square(src_sq, dest_sq);
-        occ &= !bit_mask(capture_sq);
-    }
-
-    let dest_piece = ternary!(
-        encoding::is_promotion(mv),
-        encoding::promoted(mv),
-        src_piece
-    );
-
-    if is_bit_set(piece_attacks(dest_piece, dest_sq, occ), enemy_king_sq) {
+    if is_bit_set(piece_attacks(src_piece, dest_sq, occ), enemy_king_sq) {
         return true;
     }
 
     // discovered check
     if let Some((checker, _, dir)) = find_next_piece(pos, enemy_king_sq, src_sq) {
-        return pieces::color_of(checker) == color && can_pin(checker, dir);
+        return pieces::color_of(checker) == pos.active_color && can_pin(checker, dir);
     }
 
     false

@@ -46,6 +46,12 @@ impl MoveList {
         self.len += 1;
     }
 
+    pub(crate) const fn swap(&mut self, i: usize, j: usize) {
+        let tmp = self.moves[i];
+        self.moves[i] = self.moves[j];
+        self.moves[j] = tmp;
+    }
+
     pub(crate) fn retain(&mut self, mut predicate: impl FnMut(Move) -> bool) {
         let mut j = 0;
 

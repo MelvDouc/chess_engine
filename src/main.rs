@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 
+mod benchmarks;
 mod bit_boards;
 mod engine;
 mod game;
 mod macros;
 
 fn main() {
-    _main();
+    _test_positions();
+    // benchmarks::run();
 }
 
-fn _main() {
-    use crate::{engine::run, game::position::Position, game::position::debug::print_position};
+fn _test_positions() {
+    use crate::{engine, game::position::Position, game::position::debug::print_position};
 
     let fens = [
         /* simple rook mate */
@@ -26,7 +28,7 @@ fn _main() {
         print_position(&pos);
 
         macros::bench!({
-            run(&mut pos, 7);
+            engine::run(&mut pos, 7, true);
         });
 
         println!("- - - - - - - - - -\n");

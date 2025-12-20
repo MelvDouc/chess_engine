@@ -1,5 +1,5 @@
 use crate::{
-    engine::{check_or_stalemate, score::Score, static_eval::eval_position},
+    engine::{score::Score, static_eval::eval_position},
     game::{
         moves::{MoveList, encoding},
         position::Position,
@@ -8,7 +8,6 @@ use crate::{
 
 pub(crate) fn quiesce(
     pos: &mut Position,
-    ply: usize,
     mut alpha: Score,
     beta: Score,
     moves: Option<MoveList>,
@@ -26,16 +25,12 @@ pub(crate) fn quiesce(
     let undo_info = pos.undo_info();
     let mut moves = moves.unwrap_or_else(|| pos.legal_moves());
 
-    if moves.is_empty() {
-        return check_or_stalemate(pos.is_check(), ply);
-    }
-
     moves.retain(encoding::is_capture);
     super::move_ordering::sort_captures(&mut moves);
 
     for &mv in &moves {
         pos.play_move(mv);
-        let mv_score = -quiesce(pos, ply + 1, -beta, -alpha, None);
+        let mv_score = -quiesce(pos, -beta, -alpha, None);
         pos.undo_move(mv, undo_info);
 
         if mv_score >= beta {

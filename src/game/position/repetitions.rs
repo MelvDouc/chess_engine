@@ -1,11 +1,9 @@
 use crate::macros::const_while;
 
-const TABLE_SIZE: usize = 1 << 22;
+const TABLE_SIZE: usize = 1 << 23;
 
 const fn get_index(hash: u64) -> usize {
-    const INDEX_MASK: usize = TABLE_SIZE - 1;
-
-    hash as usize & INDEX_MASK
+    hash as usize & (TABLE_SIZE - 1)
 }
 
 pub(super) fn create() -> Table {

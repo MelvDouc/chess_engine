@@ -19,11 +19,11 @@ mod transposition;
 const MAX_DEPTH: usize = 255;
 const DELTA: Score = 500;
 
-pub(crate) fn run(pos: &mut Position, max_depth: usize) {
+pub(crate) fn run(pos: &mut Position, max_depth: usize, print_pv: bool) {
     let mut tt = tp::create_table();
     let mut kmt = killer_moves::create_table();
     let mut prev_score = 0;
-    let mut delta = 500;
+    let mut delta = 250;
 
     for depth in 1..=max_depth {
         let score = ternary!(
@@ -44,12 +44,14 @@ pub(crate) fn run(pos: &mut Position, max_depth: usize) {
             delta += 250;
         }
 
-        println!(
-            "{} {} {}",
-            depth,
-            stringify_score(score),
-            pv::stringify(pos, &tt, depth)
-        );
+        if print_pv {
+            println!(
+                "{} {} {}",
+                depth,
+                stringify_score(score),
+                pv::stringify(pos, &tt, depth)
+            );
+        }
     }
 }
 
@@ -112,7 +114,7 @@ fn negamax(
     let old_alpha = alpha;
     let hash = pos.hash();
 
-    if let Some(score) = cached_score(tt, hash, depth, &mut alpha, &mut beta) {
+    if let Some(score) = tp::cached_score(tt, hash, depth, ply, &mut alpha, &mut beta) {
         return score;
     }
 
@@ -123,7 +125,8 @@ fn negamax(
     let mut moves = pos.legal_moves();
 
     if moves.is_empty() {
-        set_exact!(tt, hash, depth, check_or_stalemate(pos.is_check(), ply));
+        let score = ternary!(pos.is_check(), -MATE_SCORE, DRAW_SCORE);
+        set_exact!(tt, hash, depth, score_to_tt(score, ply));
     }
 
     if depth == 0 {
@@ -131,7 +134,7 @@ fn negamax(
             tt,
             hash,
             depth,
-            quiescence::quiesce(pos, ply, alpha, beta, Some(moves))
+            quiescence::quiesce(pos, alpha, beta, Some(moves))
         );
     }
 
@@ -194,41 +197,4 @@ fn move_score(
     }
 
     -negamax(pos, tt, kmt, ply + 1, depth - 1, -beta, -alpha)
-}
-
-fn cached_score(
-    tt: &tp::Table,
-    hash: u64,
-    depth: usize,
-    alpha: &mut Score,
-    beta: &mut Score,
-) -> Option<Score> {
-    if let Some(entry) = tp::get_entry(tt, hash) {
-        if entry.depth >= depth {
-            let score = entry.score;
-
-            match entry.flag {
-                tp::flags::EXACT => {
-                    return Some(score);
-                }
-                tp::flags::LOWER => {
-                    if score > *alpha {
-                        *alpha = score;
-                    }
-                }
-                tp::flags::UPPER => {
-                    if score < *beta {
-                        *beta = score;
-                    }
-                }
-                _ => {}
-            };
-
-            if *alpha >= *beta {
-                return Some(score);
-            }
-        }
-    }
-
-    None
 }

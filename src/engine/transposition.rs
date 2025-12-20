@@ -1,12 +1,12 @@
 use crate::{
-    engine::score::Score,
+    engine::score::{Score, score_from_tt},
     game::moves::{Move, NULL_MOVE},
     macros::ternary,
 };
 
-const TABLE_SIZE: usize = 1 << 22;
+const TABLE_SIZE: usize = 1 << 23;
 
-pub(super) mod flags {
+pub(crate) mod flags {
     use super::Score;
 
     pub(crate) const NONE: Flag = 0;
@@ -30,16 +30,16 @@ pub(super) mod flags {
 }
 
 #[derive(Copy, Clone)]
-pub(super) struct Entry {
-    pub(super) flag: flags::Flag,
-    pub(super) hash: u64,
-    pub(super) score: Score,
-    pub(super) depth: usize,
-    pub(super) mv: Move,
+pub(crate) struct Entry {
+    pub(crate) flag: flags::Flag,
+    pub(crate) hash: u64,
+    pub(crate) score: Score,
+    pub(crate) depth: usize,
+    pub(crate) mv: Move,
 }
 
 impl Entry {
-    pub(super) const fn new(
+    pub(crate) const fn new(
         flag: flags::Flag,
         hash: u64,
         score: Score,
@@ -55,12 +55,12 @@ impl Entry {
         }
     }
 
-    pub(super) const fn exact(hash: u64, score: Score, depth: usize, mv: Move) -> Self {
+    pub(crate) const fn exact(hash: u64, score: Score, depth: usize, mv: Move) -> Self {
         Self::new(flags::EXACT, hash, score, depth, mv)
     }
 }
 
-pub(super) fn create_table() -> Table {
+pub(crate) fn create_table() -> Table {
     let null_entry = Entry::new(flags::NONE, 0, 0, 0, NULL_MOVE);
     let table: Vec<Entry> = vec![null_entry; TABLE_SIZE];
     table.into_boxed_slice()
@@ -72,13 +72,13 @@ const fn get_index(hash: u64) -> usize {
     hash as usize & INDEX_MASK
 }
 
-pub(super) const fn get_entry(tt: &Table, hash: u64) -> Option<Entry> {
+pub(crate) const fn get_entry(tt: &Table, hash: u64) -> Option<Entry> {
     let entry = tt[get_index(hash)];
 
     ternary!(entry.hash == hash, Some(entry), None)
 }
 
-pub(super) const fn set_entry(tt: &mut Table, entry: Entry) {
+pub(crate) const fn set_entry(tt: &mut Table, entry: Entry) {
     let index = get_index(entry.hash);
     let prev_entry = tt[index];
 
@@ -90,4 +90,42 @@ pub(super) const fn set_entry(tt: &mut Table, entry: Entry) {
     }
 }
 
-pub(super) type Table = Box<[Entry]>;
+pub(crate) fn cached_score(
+    tt: &Table,
+    hash: u64,
+    depth: usize,
+    ply: usize,
+    alpha: &mut Score,
+    beta: &mut Score,
+) -> Option<Score> {
+    if let Some(entry) = get_entry(tt, hash) {
+        if entry.depth >= depth {
+            let score = score_from_tt(entry.score, ply);
+
+            match entry.flag {
+                flags::EXACT => {
+                    return Some(score);
+                }
+                flags::LOWER => {
+                    if score > *alpha {
+                        *alpha = score;
+                    }
+                }
+                flags::UPPER => {
+                    if score < *beta {
+                        *beta = score;
+                    }
+                }
+                _ => {}
+            };
+
+            if *alpha >= *beta {
+                return Some(score);
+            }
+        }
+    }
+
+    None
+}
+
+pub(crate) type Table = Box<[Entry]>;
